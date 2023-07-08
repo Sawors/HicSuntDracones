@@ -1,6 +1,6 @@
 name: HicSuntDracones
 version: '${project.version}'
-main: io.github.sawors.hicsuntdracones.HicSuntDracones
+main: io.github.sawors.hicsuntdracones.Main
 api-version: '1.20'
 authors: [Sawors]
 commands:

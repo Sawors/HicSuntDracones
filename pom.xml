@@ -26,7 +26,7 @@
 
     <properties>
         <java.version>
-            1.8
+            17
         </java.version>
         <project.build.sourceEncoding>
             UTF-8
@@ -105,12 +105,8 @@
             </url>
         </repository>
         <repository>
-            <id>
-                sonatype
-            </id>
-            <url>
-                https://oss.sonatype.org/content/groups/public/
-            </url>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
         </repository>
     </repositories>
 
