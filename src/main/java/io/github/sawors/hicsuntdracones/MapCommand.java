@@ -19,7 +19,6 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
-import java.util.Queue;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -60,55 +59,57 @@ public class MapCommand implements TabExecutor {
                                 logAdmin("There is no region generated in world " + w.getName());
                                 return true;
                             }
-                            
+
                             List<String> regs = Arrays.stream(regions).map(f -> f.getName().replace("r.", "").replace(".mca", "")).toList();
-                            
+
                             // worker threads
                             ExecutorService pool = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors()-1);
-                            
+
                             for(String part : regs) {
-                                
-                                //ArrayBlockingQueue<ChunkSnapshot> regionData = new SynchronousQueue<>();
-                                
-                                
-                                int breakIndex = part.indexOf(".");
-                                
-                                int regionX = Integer.parseInt(part.substring(0, breakIndex));
-                                int regionZ = Integer.parseInt(part.substring(breakIndex + 1));
-                                logAdmin("region " + regionX + ", " + regionZ);
-                                
-                                long startTime = System.currentTimeMillis();
-                                
-                                Queue<ChunkSnapshot> fetchedChunks = new LinkedList<>();
-                                int chunkAmount = 32*32;
-                                List<ChunkSnapshot> chunkData = Collections.synchronizedList(new ArrayList<>(chunkAmount));
-                                
-                                for(int chunkRelativeX = 0; chunkRelativeX < 32; chunkRelativeX++){
-                                    for(int chunkRelativeY = 0; chunkRelativeY < 32; chunkRelativeY++){
-                                        
-                                        // for every chunk of the region
-                                        
-                                        int chunkX = chunkRelativeX+(regionX*32);
-                                        int chunkY = chunkRelativeY+(regionZ*32);
-                                        
-                                        w.getChunkAtAsync(chunkX, chunkY, false, c -> {
-                                            chunkData.add(
-                                                    c == null ?
-                                                            null :
-                                                            c.getChunkSnapshot(true,true,false)
-                                            );
-                                            
-                                            if(chunkData.size() == chunkAmount){
-                                                // all the chunks have now been added to the list !
-                                                WorldRegion region = new WorldRegion(regionX,regionZ,chunkData.toArray(new ChunkSnapshot[32*32]),p.getWorld());
-                                                MapRegionManager.getInstance(w).saveData(region);
-                                                
-                                                logAdmin("Region mapping finished and saved in "+(System.currentTimeMillis()-startTime)+"ms!");
-                                            }
-                                        });
-                                    }
-                                }
+                            
                             }
+                            
+                            
+//                            //ArrayBlockingQueue<ChunkSnapshot> regionData = new SynchronousQueue<>();
+//
+//
+//                            int breakIndex = part.indexOf(".");
+//
+//                            int regionX = Integer.parseInt(part.substring(0, breakIndex));
+//                            int regionZ = Integer.parseInt(part.substring(breakIndex + 1));
+//                            logAdmin("region " + regionX + ", " + regionZ);
+//
+//                            long startTime = System.currentTimeMillis();
+//
+//                            Queue<ChunkSnapshot> fetchedChunks = new LinkedList<>();
+//                            int chunkAmount = 32*32;
+//                            List<ChunkSnapshot> chunkData = Collections.synchronizedList(new ArrayList<>(chunkAmount));
+//
+//                            for(int chunkRelativeX = 0; chunkRelativeX < 32; chunkRelativeX++){
+//                                for(int chunkRelativeY = 0; chunkRelativeY < 32; chunkRelativeY++){
+//
+//                                    // for every chunk of the region
+//
+//                                    int chunkX = chunkRelativeX+(regionX*32);
+//                                    int chunkY = chunkRelativeY+(regionZ*32);
+//
+//                                    w.getChunkAtAsync(chunkX, chunkY, false, c -> {
+//                                        chunkData.add(
+//                                                c == null ?
+//                                                        null :
+//                                                        c.getChunkSnapshot(true,true,false)
+//                                        );
+//
+//                                        if(chunkData.size() == chunkAmount){
+//                                            // all the chunks have now been added to the list !
+//                                            WorldRegion region = new WorldRegion(regionX,regionZ,chunkData.toArray(new ChunkSnapshot[32*32]),p.getWorld());
+//                                            MapRegionManager.getInstance(w).saveData(region);
+//
+//                                            logAdmin("Region mapping finished and saved in "+(System.currentTimeMillis()-startTime)+"ms!");
+//                                        }
+//                                    });
+//                                }
+//                            }
                         }
                     }
                     
@@ -198,7 +199,6 @@ public class MapCommand implements TabExecutor {
                             int chunkX = chunkRelativeX+(regionX*32);
                             int chunkY = chunkRelativeY+(regionY*32);
                             
-                            int finalChunkAmount = chunkAmount;
                             int finalChunkRelativeX = chunkRelativeX;
                             int finalChunkRelativeY = chunkRelativeY;
                             w.getChunkAtAsync(chunkX, chunkY, false, c -> {
