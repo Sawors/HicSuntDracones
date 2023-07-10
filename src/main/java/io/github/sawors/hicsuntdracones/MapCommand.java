@@ -1,5 +1,6 @@
 package io.github.sawors.hicsuntdracones;
 
+import io.github.sawors.hicsuntdracones.mapping.WorldMapper;
 import io.github.sawors.hicsuntdracones.mapping.WorldRegion;
 import org.bukkit.*;
 import org.bukkit.block.Biome;
@@ -30,18 +31,28 @@ public class MapCommand implements TabExecutor {
     @Override
     public boolean onCommand(@NotNull CommandSender commandSender, @NotNull Command command, @NotNull String s, @NotNull String[] strings) {
         
+        if(strings.length >= 1 && strings[0].equals("test")){
+            int radius = strings.length >= 2 ? Integer.parseInt(strings[1]) : 512;
+            World world = Bukkit.getWorlds().stream().filter(w -> w.getEnvironment().equals(World.Environment.NORMAL)).findFirst().orElse(Bukkit.getWorlds().get(0));
+            WorldMapper mapper = WorldMapper.getMapper(world);
+            Main.logAdmin("mapping world ["+world.getName()+"] with a radius of "+radius);
+            mapper.mapRadius(0,0,radius);
+            return true;
+        }
+        
         if(commandSender instanceof Player p){
-            
             if(strings.length >= 1){
                 switch(strings[0]){
                     case "chunks" -> {
                         logAdmin(p.getWorld().getLoadedChunks().length);
                     }
                     case "region" -> {
-                        logAdmin(WorldRegion.getRegionForCoordinates(p.getLocation().x(),p.getLocation().z()));
+                        logAdmin(WorldRegion.getRegionForCoordinates(p.getLocation()));
                     }
                     case "test" -> {
-                        logAdmin(Runtime.getRuntime().availableProcessors());
+                        World world = Bukkit.getWorlds().stream().filter(w -> w.getEnvironment().equals(World.Environment.NORMAL)).findFirst().orElse(Bukkit.getWorlds().get(0));
+                        WorldMapper mapper = WorldMapper.getMapper(world);
+                        mapper.mapRadius(0,0,512);
                     }
                     case "spec" -> {
                         p.setFlying(true);
