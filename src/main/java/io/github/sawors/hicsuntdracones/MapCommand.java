@@ -1,10 +1,7 @@
 package io.github.sawors.hicsuntdracones;
 
-import net.kyori.adventure.text.Component;
-import org.bukkit.Bukkit;
-import org.bukkit.Chunk;
-import org.bukkit.Material;
-import org.bukkit.World;
+import io.github.sawors.hicsuntdracones.mapping.WorldRegion;
+import org.bukkit.*;
 import org.bukkit.block.Biome;
 import org.bukkit.block.Block;
 import org.bukkit.command.Command;
@@ -16,12 +13,16 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import javax.imageio.ImageIO;
+import java.awt.Color;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
+import java.util.Queue;
 import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.logging.Level;
 
 import static io.github.sawors.hicsuntdracones.Main.logAdmin;
@@ -32,8 +33,123 @@ public class MapCommand implements TabExecutor {
         
         if(commandSender instanceof Player p){
             
-            if(strings.length >= 1 && strings[0].equals("chunks")){
-                logAdmin(Component.text(p.getWorld().getLoadedChunks().length));
+            if(strings.length >= 1){
+                switch(strings[0]){
+                    case "chunks" -> {
+                        logAdmin(p.getWorld().getLoadedChunks().length);
+                    }
+                    case "region" -> {
+                        logAdmin(WorldRegion.getRegionForCoordinates(p.getLocation().x(),p.getLocation().z()));
+                    }
+                    case "test" -> {
+                        logAdmin(Runtime.getRuntime().availableProcessors());
+                    }
+                    case "spec" -> {
+                        p.setFlying(true);
+                        p.teleport(new Location(p.getWorld(),32,207,32,-90,90));
+                        p.setFlying(true);
+                    }
+                    case "save" -> {
+                        World w = p.getWorld();
+                        File regionDirectory = new File(w.getWorldFolder().getPath()+File.separator+"region");
+                        
+                        
+                        if(regionDirectory.isDirectory()) {
+                            File[] regions = regionDirectory.listFiles(c -> c.getName().endsWith(".mca"));
+                            if (regions == null || regions.length == 0) {
+                                logAdmin("There is no region generated in world " + w.getName());
+                                return true;
+                            }
+                            
+                            List<String> regs = Arrays.stream(regions).map(f -> f.getName().replace("r.", "").replace(".mca", "")).toList();
+                            
+                            // worker threads
+                            ExecutorService pool = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors()-1);
+                            
+                            for(String part : regs) {
+                                
+                                //ArrayBlockingQueue<ChunkSnapshot> regionData = new SynchronousQueue<>();
+                                
+                                
+                                int breakIndex = part.indexOf(".");
+                                
+                                int regionX = Integer.parseInt(part.substring(0, breakIndex));
+                                int regionZ = Integer.parseInt(part.substring(breakIndex + 1));
+                                logAdmin("region " + regionX + ", " + regionZ);
+                                
+                                long startTime = System.currentTimeMillis();
+                                
+                                Queue<ChunkSnapshot> fetchedChunks = new LinkedList<>();
+                                int chunkAmount = 32*32;
+                                List<ChunkSnapshot> chunkData = Collections.synchronizedList(new ArrayList<>(chunkAmount));
+                                
+                                for(int chunkRelativeX = 0; chunkRelativeX < 32; chunkRelativeX++){
+                                    for(int chunkRelativeY = 0; chunkRelativeY < 32; chunkRelativeY++){
+                                        
+                                        // for every chunk of the region
+                                        
+                                        int chunkX = chunkRelativeX+(regionX*32);
+                                        int chunkY = chunkRelativeY+(regionZ*32);
+                                        
+                                        w.getChunkAtAsync(chunkX, chunkY, false, c -> {
+                                            chunkData.add(
+                                                    c == null ?
+                                                            null :
+                                                            c.getChunkSnapshot(true,true,false)
+                                            );
+                                            
+                                            if(chunkData.size() == chunkAmount){
+                                                // all the chunks have now been added to the list !
+                                                WorldRegion region = new WorldRegion(regionX,regionZ,chunkData.toArray(new ChunkSnapshot[32*32]),p.getWorld());
+                                                MapRegionManager.getInstance(w).saveData(region);
+                                                
+                                                logAdmin("Region mapping finished and saved in "+(System.currentTimeMillis()-startTime)+"ms!");
+                                            }
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    case "render" -> {
+                        File regionDirectory = new File(Main.getPlugin().getDataFolder()+File.separator+"regions"+File.separator+p.getWorld().getName());
+                        List<String> regions = Arrays.stream(Objects.requireNonNull(regionDirectory.listFiles(f -> f.getName().endsWith(".yml.png")))).map(f -> f.getName().replace("r.","").replace(".yml.png","")).toList();
+                        logAdmin(regions);
+                        int maxX = regions.stream().max(Comparator.comparingInt(name -> Integer.parseInt(name.substring(0,name.indexOf("."))))).map(f -> Integer.parseInt(f.substring(0,f.indexOf(".")))).orElse(0);
+                        int minX = regions.stream().min(Comparator.comparingInt(name -> Integer.parseInt(name.substring(0,name.indexOf("."))))).map(f -> Integer.parseInt(f.substring(0,f.indexOf(".")))).orElse(0);
+                        int maxZ = regions.stream().max(Comparator.comparingInt(name -> Integer.parseInt(name.substring(name.indexOf(".")+1)))).map(f -> Integer.parseInt(f.substring(f.indexOf(".")+1))).orElse(0);
+                        int minZ = regions.stream().min(Comparator.comparingInt(name -> Integer.parseInt(name.substring(name.indexOf(".")+1)))).map(f -> Integer.parseInt(f.substring(f.indexOf(".")+1))).orElse(0);
+                        
+                        logAdmin(maxX);
+                        logAdmin(minX);
+                        logAdmin(maxZ);
+                        logAdmin(minZ);
+                        
+                        BufferedImage fullRender = new BufferedImage((maxX-minX)*64,(maxZ-minZ)*64,BufferedImage.TYPE_INT_RGB);
+                        Graphics2D graph = fullRender.createGraphics();
+                        for(String regionName : regions){
+                            File regionRender = new File(regionDirectory.getPath()+File.separator+"r."+regionName+".yml.png");
+                            int x = Integer.parseInt(regionName.substring(0,regionName.indexOf(".")))*64;
+                            int z = Integer.parseInt(regionName.substring(regionName.indexOf(".")+1))*64;
+                            try{
+                                BufferedImage regionImage = ImageIO.read(regionRender);
+                                graph.drawImage(regionImage,x-(minX*64),z-(minZ*64),64,64,null);
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
+                        }
+                        
+                        try{
+                            ImageIO.write(fullRender,"png",new File(regionDirectory.getPath()+File.separator+"_full-render.png"));
+                        }catch (IOException e){
+                            e.printStackTrace();
+                        }
+                        
+                        graph.dispose();
+                        
+                    }
+                }
                 return true;
             }
             
@@ -87,7 +203,7 @@ public class MapCommand implements TabExecutor {
                             int finalChunkRelativeY = chunkRelativeY;
                             w.getChunkAtAsync(chunkX, chunkY, false, c -> {
                                 if(c != null){
-                                    final Biome biome = c.getChunkSnapshot(false,true,false).getBiome(8,seaLevel,8);
+                                    final Biome biome = c.getChunkSnapshot(true,true,false).getBiome(8,seaLevel,8);
                                     
                                     /*if(biome.equals(Biome.RIVER)){
                                         b.setType(Material.BLUE_WOOL);

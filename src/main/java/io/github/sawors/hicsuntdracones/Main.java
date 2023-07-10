@@ -3,6 +3,7 @@ package io.github.sawors.hicsuntdracones;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
+import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -19,7 +20,6 @@ public final class Main extends JavaPlugin {
     final private static int logColorLeft = 0xff9d00;
     final private static int logColorRight = 0xe631e1;
     
-    static MapRegionManager regionManager = null;
     
 
     @Override
@@ -27,7 +27,9 @@ public final class Main extends JavaPlugin {
         instance = this;
         saveDefaultConfig();
         
-        regionManager = new MapRegionManager();
+        for(World w : Bukkit.getWorlds()){
+            new MapRegionManager(w);
+        }
         // COMMANDS
         Objects.requireNonNull(getServer().getPluginCommand("map")).setExecutor(new MapCommand());
     }
@@ -45,7 +47,7 @@ public final class Main extends JavaPlugin {
     
     
     /**
-     * Warning : Please note that this method is not designed for fast logging as it has to fetch the stacktrace, which can impact performances. To do quick successive logging with good performances please use logAdmin(object, true) as it will disable all the slow features
+     * Warning : Please note that <b>this method is not designed for fast logging</b> as it has to fetch the stacktrace, which can impact performances. <b>To do quick successive logging with good performances please use logAdmin(object, true)</b> as it will disable all the slow features
      * @param object The object to print. This method will print the result of object.toString().
      */
     public static void logAdmin(Object object){
@@ -55,7 +57,7 @@ public final class Main extends JavaPlugin {
     /**
      *
      * @param object The object to print. This method will print the result of object.toString().
-     * @param simplified Whether to use the simplified printing mode or not. The simplified mode is much faster than the default one (up to 6 times faster)
+     * @param simplified Whether to use the simplified printing mode or not. <b>The simplified mode is much faster than the default one (up to 6 times faster)</b>
      */
     public static void logAdmin(Object object, boolean simplified){
         
