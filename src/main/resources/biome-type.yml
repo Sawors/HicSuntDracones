@@ -1,4 +1,16 @@
 river:
-  color: #ffffff
+  color: #135760
   biomes:
-    -
+    - "minecraft:river"
+forest:
+  color: #007700
+  biomes:
+    - "minecraft:forest"
+plain:
+  color: #00ff00
+  biomes:
+    - "minecraft:plains"
+ocean:
+  color: #2c40ab
+  biomes:
+    - "minecraft:ocean"

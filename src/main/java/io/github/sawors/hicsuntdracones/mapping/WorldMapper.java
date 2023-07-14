@@ -1,11 +1,12 @@
 package io.github.sawors.hicsuntdracones.mapping;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 import io.github.sawors.hicsuntdracones.Main;
-import org.bukkit.Bukkit;
-import org.bukkit.ChunkSnapshot;
-import org.bukkit.Location;
-import org.bukkit.World;
+import io.github.sawors.hicsuntdracones.MapRegionManager;
+import org.bukkit.*;
 
+import java.io.File;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
@@ -24,7 +25,8 @@ public class WorldMapper {
     // TODO : add this to the config ↴
     private static final int workerThreadAmount = Runtime.getRuntime().availableProcessors()-2;
     private static final ExecutorService workerThreads = Executors.newFixedThreadPool(workerThreadAmount);
-    
+    //                                   TODO : add this to the config ↴
+    private static final int tileSize = WorldTile.closestTileSize(8);
     
     private final World world;
     
@@ -58,6 +60,8 @@ public class WorldMapper {
             Main.logAdmin("region "+region.chunkX()+", "+region.chunkZ());
             regionTasks.add(() -> mapRegion(region, chunks -> {
                 if(!regionTasks.isEmpty()){
+                    // save the region to a file
+                    MapRegionManager.getInstance(world).saveData(chunks);
                     // run the next region in the queue
                     regionTasks.pop().run();
                 } else {
@@ -94,7 +98,7 @@ public class WorldMapper {
                     ChunkSnapshot snapshot = chunk != null ? chunk.getChunkSnapshot(true,true,false) : null;
                     if(chunk != null && chunk.isEntitiesLoaded()){
                         world.unloadChunk(chunk);
-                        Main.logAdmin("unloading chunk "+chunk.getX()+", "+chunk.getZ());
+                        Main.logAdmin("unloading chunk "+chunk.getX()+", "+chunk.getZ(),true);
                     }
                     if(chunk == null){
                         Main.logAdmin("chunk "+chunkX+", "+chunkZ+" is null !",true);
@@ -108,6 +112,9 @@ public class WorldMapper {
                         // check to see if the mapping is complete :
                         if(mappedChunks.size() == chunkAmount){
                             // mapping complete, the set is full !
+                            //
+                            // > REGION MAPPED <
+                            //
                             Main.logAdmin("Mapping of region "+region.chunkX()+", "+region.chunkZ()+" finished !", true);
                             callback.accept(mappedChunks);
                         }

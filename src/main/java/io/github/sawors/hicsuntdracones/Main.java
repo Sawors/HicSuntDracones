@@ -51,7 +51,7 @@ public final class Main extends JavaPlugin {
      * @param object The object to print. This method will print the result of object.toString().
      */
     public static void logAdmin(Object object){
-        logAdmin(object,false);
+        logAdmin(object,true);
     }
     
     /**
