@@ -1,12 +1,9 @@
 package io.github.sawors.hicsuntdracones.mapping;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
 import io.github.sawors.hicsuntdracones.Main;
 import io.github.sawors.hicsuntdracones.MapRegionManager;
 import org.bukkit.*;
 
-import java.io.File;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
@@ -59,9 +56,12 @@ public class WorldMapper {
         for(WorldRegion region : regions){
             Main.logAdmin("region "+region.chunkX()+", "+region.chunkZ());
             regionTasks.add(() -> mapRegion(region, chunks -> {
+                
+                // save the region to a file
+                Main.logAdmin("saving data for region "+region.chunkX()+", "+region.chunkZ());
+                MapRegionManager.getInstance(world).saveData(chunks);
+                
                 if(!regionTasks.isEmpty()){
-                    // save the region to a file
-                    MapRegionManager.getInstance(world).saveData(chunks);
                     // run the next region in the queue
                     regionTasks.pop().run();
                 } else {
@@ -98,7 +98,6 @@ public class WorldMapper {
                     ChunkSnapshot snapshot = chunk != null ? chunk.getChunkSnapshot(true,true,false) : null;
                     if(chunk != null && chunk.isEntitiesLoaded()){
                         world.unloadChunk(chunk);
-                        Main.logAdmin("unloading chunk "+chunk.getX()+", "+chunk.getZ(),true);
                     }
                     if(chunk == null){
                         Main.logAdmin("chunk "+chunkX+", "+chunkZ+" is null !",true);
@@ -106,9 +105,6 @@ public class WorldMapper {
                     workerThreads.submit(() -> {
                         WorldTile[] tiles = snapshot != null ? mapChunk(snapshot) : new WorldTile[4];
                         mappedChunks.add(new MappedChunk(world, chunkX, chunkZ, tiles));
-                        if(snapshot != null){
-                            Main.logAdmin("mapped chunk "+snapshot.getX()+", "+snapshot.getZ(),true);
-                        }
                         // check to see if the mapping is complete :
                         if(mappedChunks.size() == chunkAmount){
                             // mapping complete, the set is full !
@@ -132,15 +128,24 @@ public class WorldMapper {
     
     private WorldTile[] mapChunk(ChunkSnapshot chunk){
         WorldTile[] tiles = new WorldTile[4];
+        int tilePerChunkSide = 16/tileSize;
+        int centerOffset = tileSize/2;
         
         if(chunk != null){
             int i = 0;
-            for(int x = 0; x<2; x++){
-                for(int z = 0; z<2; z++){
-                    int tileX = x*8;
-                    int tileZ = z*8;
-                    int tileMaxY = chunk.getHighestBlockYAt(tileX+4,tileZ+4);
-                    tiles[i] = new WorldTile((chunk.getX()*2)+tileX,(chunk.getZ()*2)+tileZ,tileMaxY, chunk.getBiome(tileX,tileMaxY,tileZ), TileType.DEFAULT);
+            for(int x = 0; x<tilePerChunkSide; x++){
+                for(int z = 0; z<tilePerChunkSide; z++){
+                    int tileX = x*tileSize;
+                    int tileZ = z*tileSize;
+                    int tileMaxY = chunk.getHighestBlockYAt(tileX+centerOffset,tileZ+centerOffset);
+                    Material material = chunk.getBlockType(tileX+centerOffset-1,tileMaxY,tileZ+centerOffset-1);
+                    tiles[i] = new WorldTile(
+                            (chunk.getX()*tilePerChunkSide)+tileX,
+                            (chunk.getZ()*tilePerChunkSide)+tileZ,tileMaxY,
+                            chunk.getBiome(tileX,tileMaxY,tileZ),
+                            TileType.DEFAULT,
+                            material
+                    );
                     i++;
                 }
             }
@@ -154,5 +159,6 @@ public class WorldMapper {
         final public static String DEFAULT = "basic";
         final public static String VILLAGE = "village";
         final public static String OUTPOST = "pillager_outpost";
+        final public static String WATER = "water";
     }
 }
