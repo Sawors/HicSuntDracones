@@ -29,6 +29,7 @@ public class WorldMapper {
     //                                   TODO : add this to the config ↴
     private static final int tileSize = WorldTile.closestTileSize(8);
     
+    private final int chunksPerBatch = 64*64;
     private final World world;
     
     /**
@@ -103,11 +104,10 @@ public class WorldMapper {
                     if(chunk != null && chunk.isEntitiesLoaded()){
                         world.unloadChunk(chunk);
                     }
-                    if(chunk == null){
-                        logger.logAdmin("chunk "+chunkX+", "+chunkZ+" is null !",true);
-                    }
                     workerThreads.submit(() -> {
-                        WorldTile[] tiles = snapshot != null ? mapChunk(snapshot) : new WorldTile[4];
+                        int emptyTileArraySize = (16/tileSize)*(16/tileSize);
+                        WorldTile[] tiles = snapshot != null ? mapChunk(snapshot) : new WorldTile[emptyTileArraySize];
+                        
                         mappedChunks.add(new MappedChunk(world, chunkX, chunkZ, tiles));
                         // check to see if the mapping is complete :
                         if(mappedChunks.size() == chunkAmount){
@@ -131,8 +131,8 @@ public class WorldMapper {
     }
     
     private WorldTile[] mapChunk(ChunkSnapshot chunk){
-        WorldTile[] tiles = new WorldTile[4];
         int tilePerChunkSide = 16/tileSize;
+        WorldTile[] tiles = new WorldTile[tilePerChunkSide*tilePerChunkSide];
         int centerOffset = tileSize/2;
         
         if(chunk != null){
@@ -144,10 +144,11 @@ public class WorldMapper {
                     int tileMaxY = chunk.getHighestBlockYAt(tileX+centerOffset,tileZ+centerOffset);
                     Material material = chunk.getBlockType(tileX+centerOffset-1,tileMaxY,tileZ+centerOffset-1);
                     tiles[i] = new WorldTile(
-                            (chunk.getX()*tilePerChunkSide)+tileX,
-                            (chunk.getZ()*tilePerChunkSide)+tileZ,tileMaxY,
+                            (chunk.getX()*tilePerChunkSide)+x,
+                            (chunk.getZ()*tilePerChunkSide)+z,
+                            tileMaxY,
                             chunk.getBiome(tileX,tileMaxY,tileZ).getKey(),
-                            TileType.DEFAULT,
+                            WorldTile.TileType.DEFAULT,
                             material
                     );
                     i++;
@@ -158,15 +159,46 @@ public class WorldMapper {
         return tiles;
     }
     
-    // just using this instead of an enum for convenience
-    public static final class TileType {
-        final public static String DEFAULT = "basic";
-        final public static String VILLAGE = "village";
-        final public static String OUTPOST = "pillager_outpost";
-        final public static String WATER = "water";
-    }
-    
     protected ExecutorService getWorkerThreads() {
         return workerThreads;
+    }
+    
+    private WorldChunk[][] splitRegion(int minX, int maxX, int minZ, int maxZ){
+        int startChunkX = Math.floorDiv(minX,16);
+        int startChunkZ = Math.floorDiv(minZ,16);
+        int chunkAmountX = (int) Math.ceil((maxX-(startChunkX*16))/16.0);
+        int chunkAmountZ = (int) Math.ceil((maxZ-(startChunkZ*16))/16.0);
+        
+        int packAmount = (int) Math.ceil(((double) chunkAmountX*chunkAmountZ)/chunksPerBatch);
+        
+        WorldChunk[][] split = new WorldChunk[packAmount][chunksPerBatch];
+        int chunkIndex = 0;
+        for(int x = 0; x<chunkAmountX; x++){
+            for(int z = 0; z<chunkAmountZ; z++){
+                int batch = Math.floorDiv(chunkIndex,chunksPerBatch);
+                int internalBatchIndex = chunkIndex%chunksPerBatch;
+                split[batch][internalBatchIndex] = new WorldChunk(world,startChunkX+x,startChunkZ+z);
+                chunkIndex++;
+            }
+        }
+        
+        return split;
+        
+        //        int xRegions = (int) Math.ceil(length/(regionChunkSize*16.0));
+        //        int zRegions = (int) Math.ceil(height/(regionChunkSize*16.0));
+        //        World world = origin.getWorld();
+        //
+        //        int startChunkX = (int) Math.floor(origin.x()/16);
+        //        int startChunkZ = (int) Math.floor(origin.z()/16);
+        //
+        //        WorldRegion[] regions = new WorldRegion[xRegions*zRegions];
+        //        int index = 0;
+        //        for(int x = 0; x<xRegions; x++){
+        //            for(int z = 0; z<zRegions; z++){
+        //                regions[index] = new WorldRegion(startChunkX+(regionChunkSize*x),startChunkZ+(regionChunkSize*z),world);
+        //                index++;
+        //            }
+        //        }
+        //        return regions;
     }
 }

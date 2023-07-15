@@ -7,6 +7,7 @@ import io.github.sawors.hicsuntdracones.mapping.WorldMapper;
 import io.github.sawors.hicsuntdracones.mapping.WorldRegion;
 import io.github.sawors.hicsuntdracones.mapping.WorldRenderer;
 import io.github.sawors.hicsuntdracones.mapping.WorldTile;
+import io.github.sawors.hicsuntdracones.mapping.renderers.HeightMapTileRenderer;
 import org.bukkit.*;
 import org.bukkit.block.Biome;
 import org.bukkit.block.Block;
@@ -49,7 +50,7 @@ public class MapCommand implements TabExecutor {
                 }
                 case "render" -> {
                     WorldRenderer renderer = new WorldRenderer(world);
-                    renderer.renderMap(WorldRenderer.RenderType.HEIGHT);
+                    renderer.renderMap(new HeightMapTileRenderer(world));
                 }
                 case "chunks" -> {
                     logger.logAdmin("there is "+world.getLoadedChunks().length+" loaded chunks in "+world.getName());
@@ -62,6 +63,9 @@ public class MapCommand implements TabExecutor {
                         logger.logAdmin(entry.getValue());
                         logger.logAdmin(entry.getValue().getAsJsonObject().get(WorldTile.FIELD_BIOME).toString().replace("\"","").replace("'",""));
                     }
+                }
+                case "purge" ->  {
+                    WorldMapManager.getInstance(world).getTileSaveFile().delete();
                 }
             }
             return true;

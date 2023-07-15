@@ -6,10 +6,13 @@ import com.google.gson.JsonObject;
 import io.github.sawors.hicsuntdracones.Main;
 import io.github.sawors.hicsuntdracones.SLogger;
 import io.github.sawors.hicsuntdracones.WorldMapManager;
+import io.github.sawors.hicsuntdracones.mapping.renderers.RangedTileRenderer;
+import io.github.sawors.hicsuntdracones.mapping.renderers.TileRenderer;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.World;
 
+import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileReader;
@@ -32,8 +35,8 @@ public class WorldRenderer {
         this.logger = Main.logger();
     }
     
-    public void renderMap(RenderType renderType) {
-        
+    public void renderMap(TileRenderer renderer) {
+        long startTime = System.currentTimeMillis();
         // read the save data
         JsonObject saveJson = new JsonObject();
         try(Reader r = new FileReader(tileSaveFile)){
@@ -51,16 +54,20 @@ public class WorldRenderer {
         WorldTile[] tiles = new WorldTile[saveJson.size()];
         int height = 0;
         int width = 0;
+        int maxX = 0;
+        int minX = 0;
+        int maxZ = 0;
+        int minZ = 0;
         final String coordinateSeparator = ",";
         try{
             int[] xCoords = saveJson.keySet().stream().mapToInt(c -> Integer.parseInt(c.substring(0,c.indexOf(coordinateSeparator)))).toArray();
             int[] zCoords = saveJson.keySet().stream().mapToInt(c -> Integer.parseInt(c.substring(c.indexOf(coordinateSeparator)+1))).toArray();
-            int maxX = Arrays.stream(xCoords).max().orElse(0);
-            int minX = Arrays.stream(xCoords).min().orElse(0);
-            int maxZ = Arrays.stream(zCoords).max().orElse(0);
-            int minZ = Arrays.stream(zCoords).min().orElse(0);
-            height = maxZ-minZ;
-            width = maxX-minX;
+            maxX = Arrays.stream(xCoords).max().orElse(0);
+            minX = Arrays.stream(xCoords).min().orElse(0);
+            maxZ = Arrays.stream(zCoords).max().orElse(0);
+            minZ = Arrays.stream(zCoords).min().orElse(0);
+            height = (maxZ-minZ)+1;
+            width = (maxX-minX)+1;
         } catch (IndexOutOfBoundsException | NumberFormatException e){
             logger.logAdmin("error while parsing save data for world "+world.getName());
         }
@@ -83,17 +90,38 @@ public class WorldRenderer {
             
             index++;
         }
-        BufferedImage image = new BufferedImage(width,height,BufferedImage.TYPE_INT_RGB);
-        for(WorldTile tile : tiles){
         
+        BufferedImage image = new BufferedImage(width,height,BufferedImage.TYPE_INT_RGB);
+        File imageOutput = new File(tileSaveFile.getParentFile().getPath()+File.separator+"_render.png");
+        logger.logAdmin(maxX);
+        logger.logAdmin(minX);
+        logger.logAdmin(maxZ);
+        logger.logAdmin(minZ);
+        
+        if(renderer instanceof RangedTileRenderer ranged){
+            ranged.setRangeSource(
+                    tiles
+//                    new WorldTile[]{
+//                    Arrays.stream(tiles).max(Comparator.comparingInt(WorldTile::maxY)).orElse(new WorldTile(0,0,world.getMaxHeight(), Biome.PLAINS.getKey(),WorldTile.TileType.DEFAULT,Material.AIR)),
+//                    //new WorldTile(0,0,129, Biome.PLAINS.getKey(),WorldTile.TileType.DEFAULT,Material.AIR),
+//                    new WorldTile(0,0,63, Biome.PLAINS.getKey(),WorldTile.TileType.DEFAULT,Material.AIR)
+//                    }
+            );
         }
-    }
-    
-    public enum RenderType {
-        BIOME,
-        HEIGHT,
-        BLOCK,
-        FANCY_OLD_NO_COLOR,
-        FANCY_OLD_COLOR
+        
+        for(WorldTile tile : tiles){
+            image.setRGB(
+                    tile.x()-minX,
+                    tile.z()-minZ,
+                    renderer.renderTile(tile).getRGB()
+            );
+        }
+        try{
+            ImageIO.write(image,"png",imageOutput);
+            long totalTime = System.currentTimeMillis()-startTime;
+            logger.logAdmin("rendering done in "+totalTime+"ms ("+totalTime/1000f+"s)!");
+        } catch (IOException e){
+            e.printStackTrace();
+        }
     }
 }

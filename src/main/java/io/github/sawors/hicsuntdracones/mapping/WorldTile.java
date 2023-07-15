@@ -31,4 +31,12 @@ public record WorldTile(int x, int z, int maxY, NamespacedKey biome, String type
         tileData.addProperty(FIELD_BLOCK,material().key().toString());
         return tileData;
     }
+    
+    // just using this instead of an enum for convenience
+    public static final class TileType {
+        final public static String DEFAULT = "basic";
+        final public static String VILLAGE = "village";
+        final public static String OUTPOST = "pillager_outpost";
+        final public static String WATER = "water";
+    }
 }
