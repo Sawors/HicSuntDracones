@@ -1,7 +1,12 @@
 package io.github.sawors.hicsuntdracones;
 
+import com.google.gson.Gson;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import io.github.sawors.hicsuntdracones.mapping.WorldMapper;
 import io.github.sawors.hicsuntdracones.mapping.WorldRegion;
+import io.github.sawors.hicsuntdracones.mapping.WorldRenderer;
+import io.github.sawors.hicsuntdracones.mapping.WorldTile;
 import org.bukkit.*;
 import org.bukkit.block.Biome;
 import org.bukkit.block.Block;
@@ -25,29 +30,49 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.logging.Level;
 
-import static io.github.sawors.hicsuntdracones.Main.logAdmin;
-
 public class MapCommand implements TabExecutor {
+    
+    SLogger logger = Main.logger();
+    
     @Override
     public boolean onCommand(@NotNull CommandSender commandSender, @NotNull Command command, @NotNull String s, @NotNull String[] strings) {
         
-        if(strings.length >= 1 && strings[0].equals("test")){
-            int radius = strings.length >= 2 ? Integer.parseInt(strings[1]) : 512;
+        if(strings.length >= 1){
             World world = Bukkit.getWorlds().stream().filter(w -> w.getEnvironment().equals(World.Environment.NORMAL)).findFirst().orElse(Bukkit.getWorlds().get(0));
-            WorldMapper mapper = WorldMapper.getMapper(world);
-            Main.logAdmin("mapping world ["+world.getName()+"] with a radius of "+radius);
-            mapper.mapRadius(0,0,radius);
+            
+            switch(strings[0]){
+                case "radius" -> {
+                    int radius = strings.length >= 2 ? Integer.parseInt(strings[1]) : 512;
+                    WorldMapper mapper = WorldMapper.getMapper(world);
+                    logger.logAdmin("mapping world ["+world.getName()+"] with a radius of "+radius);
+                    mapper.mapRadius(0,0,radius);
+                }
+                case "render" -> {
+                    WorldRenderer renderer = new WorldRenderer(world);
+                    renderer.renderMap(WorldRenderer.RenderType.HEIGHT);
+                }
+                case "chunks" -> {
+                    logger.logAdmin("there is "+world.getLoadedChunks().length+" loaded chunks in "+world.getName());
+                }
+                case "test" -> {
+                    Gson gson = new Gson();
+                    JsonObject json = gson.fromJson("{\"0,0\":{\"biome\":\"minecraft:forest\",\"type\":\"basic\",\"maxY\":100,\"block\":\"minecraft:light_blue_wool\"}}", JsonObject.class);
+                    for(Map.Entry<String,JsonElement> entry : json.entrySet()){
+                        logger.logAdmin(entry.getKey());
+                        logger.logAdmin(entry.getValue());
+                        logger.logAdmin(entry.getValue().getAsJsonObject().get(WorldTile.FIELD_BIOME).toString().replace("\"","").replace("'",""));
+                    }
+                }
+            }
             return true;
         }
         
         if(commandSender instanceof Player p){
             if(strings.length >= 1){
                 switch(strings[0]){
-                    case "chunks" -> {
-                        logAdmin(p.getWorld().getLoadedChunks().length);
-                    }
+                    
                     case "region" -> {
-                        logAdmin(WorldRegion.getRegionForCoordinates(p.getLocation()));
+                        logger.logAdmin(WorldRegion.getRegionForCoordinates(p.getLocation()));
                     }
                     case "test" -> {
                         World world = Bukkit.getWorlds().stream().filter(w -> w.getEnvironment().equals(World.Environment.NORMAL)).findFirst().orElse(Bukkit.getWorlds().get(0));
@@ -67,7 +92,7 @@ public class MapCommand implements TabExecutor {
                         if(regionDirectory.isDirectory()) {
                             File[] regions = regionDirectory.listFiles(c -> c.getName().endsWith(".mca"));
                             if (regions == null || regions.length == 0) {
-                                logAdmin("There is no region generated in world " + w.getName());
+                                logger.logAdmin("There is no region generated in world " + w.getName());
                                 return true;
                             }
 
@@ -127,16 +152,16 @@ public class MapCommand implements TabExecutor {
                     case "render" -> {
                         File regionDirectory = new File(Main.getPlugin().getDataFolder()+File.separator+"regions"+File.separator+p.getWorld().getName());
                         List<String> regions = Arrays.stream(Objects.requireNonNull(regionDirectory.listFiles(f -> f.getName().endsWith(".yml.png")))).map(f -> f.getName().replace("r.","").replace(".yml.png","")).toList();
-                        logAdmin(regions);
+                        logger.logAdmin(regions);
                         int maxX = regions.stream().max(Comparator.comparingInt(name -> Integer.parseInt(name.substring(0,name.indexOf("."))))).map(f -> Integer.parseInt(f.substring(0,f.indexOf(".")))).orElse(0);
                         int minX = regions.stream().min(Comparator.comparingInt(name -> Integer.parseInt(name.substring(0,name.indexOf("."))))).map(f -> Integer.parseInt(f.substring(0,f.indexOf(".")))).orElse(0);
                         int maxZ = regions.stream().max(Comparator.comparingInt(name -> Integer.parseInt(name.substring(name.indexOf(".")+1)))).map(f -> Integer.parseInt(f.substring(f.indexOf(".")+1))).orElse(0);
                         int minZ = regions.stream().min(Comparator.comparingInt(name -> Integer.parseInt(name.substring(name.indexOf(".")+1)))).map(f -> Integer.parseInt(f.substring(f.indexOf(".")+1))).orElse(0);
                         
-                        logAdmin(maxX);
-                        logAdmin(minX);
-                        logAdmin(maxZ);
-                        logAdmin(minZ);
+                        logger.logAdmin(maxX);
+                        logger.logAdmin(minX);
+                        logger.logAdmin(maxZ);
+                        logger.logAdmin(minZ);
                         
                         BufferedImage fullRender = new BufferedImage((maxX-minX)*64,(maxZ-minZ)*64,BufferedImage.TYPE_INT_RGB);
                         Graphics2D graph = fullRender.createGraphics();
@@ -174,14 +199,14 @@ public class MapCommand implements TabExecutor {
             if(regionDirectory.isDirectory()) {
                 File[] regions = regionDirectory.listFiles(c -> c.getName().endsWith(".mca"));
                 if(regions == null || regions.length == 0) {
-                    logAdmin("There is no region generated in world "+w.getName());
+                    logger.logAdmin("There is no region generated in world "+w.getName());
                     return true;
                 }
                 
                 List<String> regs =  Arrays.stream(regions).map(f -> f.getName().replace("r.","").replace(".mca","")).toList();
                 
                 Set<Chunk> generated = new HashSet<>(regions.length*32*32);
-                logAdmin(regions.length*32*32);
+                logger.logAdmin(regions.length*32*32);
                 
                
                 
@@ -198,7 +223,7 @@ public class MapCommand implements TabExecutor {
                     
                     int regionX = Integer.parseInt(part.substring(0,breakIndex));
                     int regionY = Integer.parseInt(part.substring(breakIndex+1));
-                    logAdmin("region "+regionX+", "+regionY);
+                    logger.logAdmin("region "+regionX+", "+regionY);
                     int chunkAmount = 0;
                     long startTime = System.currentTimeMillis();
                     
@@ -245,7 +270,7 @@ public class MapCommand implements TabExecutor {
                 
                 
                 //generated.removeIf(Objects::isNull);
-                logAdmin(generated.size(),true);
+                logger.logAdmin(generated.size(),true);
                 
                 if(true){
                     return true;
@@ -259,8 +284,8 @@ public class MapCommand implements TabExecutor {
                 int maxZ = generated.stream().max(Comparator.comparingInt(Chunk::getZ)).orElse(w.getChunkAt(0,0)).getZ();
                 int minZ = generated.stream().min(Comparator.comparingInt(Chunk::getZ)).orElse(w.getChunkAt(0,0)).getZ();
                 int height = maxZ-minZ;
-                logAdmin(width);
-                logAdmin(height);
+                logger.logAdmin(width);
+                logger.logAdmin(height);
                 
                 // ie sampling 1 block for every n blocks
                 int precision = 4;
@@ -280,8 +305,8 @@ public class MapCommand implements TabExecutor {
                 
                 final int finalPrecision = precision;
                 
-                logAdmin(generated.size());
-                logAdmin(generated.size()*16*16);
+                logger.logAdmin(generated.size());
+                logger.logAdmin(generated.size()*16*16);
                 
                 if(true){
                     return true;
@@ -308,7 +333,7 @@ public class MapCommand implements TabExecutor {
                                     }.runTask(Main.getPlugin());
                                     
                                     if(site[0] == null || matGet[0] == null){
-                                        logAdmin("Could not get block");
+                                        logger.logAdmin("Could not get block");
                                         return;
                                     }
                                     
@@ -333,7 +358,7 @@ public class MapCommand implements TabExecutor {
                                     }
                                     File texture = new File("textures"+File.separator+"block"+File.separator+textureName+".png");
                                     if(!colorCache.containsKey(mat) && texture.exists()){
-                                        logAdmin(texture.getPath());
+                                        logger.logAdmin(texture.getPath());
                                         try{
                                             BufferedImage base = ImageIO.read(texture);
                                             int tWidth = base.getWidth();
@@ -399,12 +424,12 @@ public class MapCommand implements TabExecutor {
                             throw new RuntimeException(e);
                         }
                         
-                        logAdmin("rendering done !");
+                        logger.logAdmin("rendering done !");
                     }
                 }.runTaskAsynchronously(Main.getPlugin());
                 return true;
             } else {
-                logAdmin("There is no region generated in world "+w.getName());
+                logger.logAdmin("There is no region generated in world "+w.getName());
             }
         }
         return false;

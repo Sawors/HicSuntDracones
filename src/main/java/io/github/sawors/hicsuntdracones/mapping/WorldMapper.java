@@ -1,7 +1,8 @@
 package io.github.sawors.hicsuntdracones.mapping;
 
 import io.github.sawors.hicsuntdracones.Main;
-import io.github.sawors.hicsuntdracones.MapRegionManager;
+import io.github.sawors.hicsuntdracones.SLogger;
+import io.github.sawors.hicsuntdracones.WorldMapManager;
 import org.bukkit.*;
 
 import java.util.HashMap;
@@ -13,7 +14,10 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 
+
 public class WorldMapper {
+    
+    static SLogger logger = Main.logger();
     
     // only one world mapper is allowed per world
     private final static Map<String,WorldMapper> mappers = new HashMap<>(Bukkit.getWorlds().size());
@@ -54,19 +58,19 @@ public class WorldMapper {
         
         WorldRegion[] regions = WorldRegion.split(new Location(world,Math.floorDiv(centerX-radius,16)*16,0,Math.floorDiv(centerZ-radius,16)*16),radius*2,radius*2);
         for(WorldRegion region : regions){
-            Main.logAdmin("region "+region.chunkX()+", "+region.chunkZ());
+            logger.logAdmin("region "+region.chunkX()+", "+region.chunkZ());
             regionTasks.add(() -> mapRegion(region, chunks -> {
                 
                 // save the region to a file
-                Main.logAdmin("saving data for region "+region.chunkX()+", "+region.chunkZ());
-                MapRegionManager.getInstance(world).saveData(chunks);
+                logger.logAdmin("saving data for region "+region.chunkX()+", "+region.chunkZ());
+                WorldMapManager.getInstance(world).saveData(chunks);
                 
                 if(!regionTasks.isEmpty()){
                     // run the next region in the queue
                     regionTasks.pop().run();
                 } else {
                     // all regions generated !
-                    Main.logAdmin("all regions generated !");
+                    logger.logAdmin("all regions generated !");
                 }
             }));
         }
@@ -100,7 +104,7 @@ public class WorldMapper {
                         world.unloadChunk(chunk);
                     }
                     if(chunk == null){
-                        Main.logAdmin("chunk "+chunkX+", "+chunkZ+" is null !",true);
+                        logger.logAdmin("chunk "+chunkX+", "+chunkZ+" is null !",true);
                     }
                     workerThreads.submit(() -> {
                         WorldTile[] tiles = snapshot != null ? mapChunk(snapshot) : new WorldTile[4];
@@ -111,7 +115,7 @@ public class WorldMapper {
                             //
                             // > REGION MAPPED <
                             //
-                            Main.logAdmin("Mapping of region "+region.chunkX()+", "+region.chunkZ()+" finished !", true);
+                            logger.logAdmin("Mapping of region "+region.chunkX()+", "+region.chunkZ()+" finished !", true);
                             callback.accept(mappedChunks);
                         }
                     });
@@ -142,7 +146,7 @@ public class WorldMapper {
                     tiles[i] = new WorldTile(
                             (chunk.getX()*tilePerChunkSide)+tileX,
                             (chunk.getZ()*tilePerChunkSide)+tileZ,tileMaxY,
-                            chunk.getBiome(tileX,tileMaxY,tileZ),
+                            chunk.getBiome(tileX,tileMaxY,tileZ).getKey(),
                             TileType.DEFAULT,
                             material
                     );
@@ -160,5 +164,9 @@ public class WorldMapper {
         final public static String VILLAGE = "village";
         final public static String OUTPOST = "pillager_outpost";
         final public static String WATER = "water";
+    }
+    
+    protected ExecutorService getWorkerThreads() {
+        return workerThreads;
     }
 }

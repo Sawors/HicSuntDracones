@@ -18,9 +18,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.logging.Level;
 
-public class MapRegionManager {
+public class WorldMapManager {
     
-    private final static Map<World,MapRegionManager> worldManagers = new HashMap<>();
+    private final static Map<World, WorldMapManager> worldManagers = new HashMap<>();
     // file storage
     private final static File regionRootDirectory = new File(Main.getPlugin().getDataFolder().getPath() +File.separator+ "regions");
     // world and world directory
@@ -30,7 +30,7 @@ public class MapRegionManager {
     // save thread
     ExecutorService saveThread = Executors.newSingleThreadExecutor();
     
-    protected MapRegionManager(World world) {
+    protected WorldMapManager(World world) {
         this.world = world;
         this.worldDirectory = new File(regionRootDirectory.getPath()+File.separator+world.getName());
         this.tileSaveFile = new File(worldDirectory.getPath()+File.separator+"tiles.json");
@@ -45,8 +45,8 @@ public class MapRegionManager {
         }
     }
     
-    public static MapRegionManager getInstance(World world){
-        return worldManagers.getOrDefault(world,new MapRegionManager(world));
+    public static WorldMapManager getInstance(World world){
+        return worldManagers.getOrDefault(world,new WorldMapManager(world));
     }
     
     /**
@@ -86,6 +86,12 @@ public class MapRegionManager {
             }
         });
     }
+    
+    public File getTileSaveFile() {
+        return tileSaveFile;
+    }
+    
+    
 //    public void saveData(WorldRegion region){
 //        YamlConfiguration saveConfig = new YamlConfiguration();
 //
