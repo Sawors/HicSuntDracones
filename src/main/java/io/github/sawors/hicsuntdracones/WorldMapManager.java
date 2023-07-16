@@ -1,9 +1,6 @@
 package io.github.sawors.hicsuntdracones;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
+import com.google.gson.*;
 import io.github.sawors.hicsuntdracones.mapping.MappedChunk;
 import io.github.sawors.hicsuntdracones.mapping.WorldRegion;
 import io.github.sawors.hicsuntdracones.mapping.WorldTile;
@@ -11,6 +8,8 @@ import org.bukkit.Bukkit;
 import org.bukkit.World;
 
 import java.io.*;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
@@ -59,12 +58,17 @@ public class WorldMapManager {
     public void saveData(Set<MappedChunk> data){
         saveTasks.add(() -> {
             JsonObject saveJson = new JsonObject();
-            try(Reader r = new FileReader(tileSaveFile)){
-                JsonObject oldData = new Gson().fromJson(r,JsonObject.class);
-                if(oldData != null){
-                    for(Map.Entry<String, JsonElement> entry : oldData.entrySet()){
-                        saveJson.add(entry.getKey(),entry.getValue());
+            // TODO : fix the unterminated string bug
+            try(Reader r = new BufferedReader(new InputStreamReader(Files.newInputStream(tileSaveFile.toPath()), StandardCharsets.UTF_8))){
+                try{
+                    JsonObject oldData = new Gson().fromJson(r,JsonObject.class);
+                    if(oldData != null){
+                        for(Map.Entry<String, JsonElement> entry : oldData.entrySet()){
+                            saveJson.add(entry.getKey(),entry.getValue());
+                        }
                     }
+                } catch (JsonSyntaxException e2){
+                    Main.logger().logAdmin(e2.getMessage());
                 }
             } catch (IOException e){
                 Main.logger().logAdmin(e.getMessage());
@@ -80,8 +84,8 @@ public class WorldMapManager {
                 }
             }
             
-            try(Writer out = new FileWriter(tileSaveFile)){
-                Gson gson = new GsonBuilder().create();
+            try(Writer out = new FileWriter(tileSaveFile, StandardCharsets.UTF_8)){
+                Gson gson = new GsonBuilder().setPrettyPrinting().create();
                 out.write(gson.toJson(saveJson));
             } catch (IOException e){
                 e.printStackTrace();

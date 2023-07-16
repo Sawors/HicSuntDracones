@@ -76,7 +76,7 @@ public class MapCommand implements TabExecutor {
                 switch(strings[0]){
                     
                     case "region" -> {
-                        logger.logAdmin(WorldRegion.getRegionForCoordinates(p.getLocation()));
+                        logger.logAdmin(WorldRegion.getRegionForBlock(p.getLocation()));
                     }
                     case "test" -> {
                         World world = Bukkit.getWorlds().stream().filter(w -> w.getEnvironment().equals(World.Environment.NORMAL)).findFirst().orElse(Bukkit.getWorlds().get(0));

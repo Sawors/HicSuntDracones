@@ -1,14 +1,15 @@
 package io.github.sawors.hicsuntdracones.mapping;
 
+import com.google.gson.JsonSyntaxException;
 import io.github.sawors.hicsuntdracones.Main;
 import io.github.sawors.hicsuntdracones.SLogger;
 import io.github.sawors.hicsuntdracones.WorldMapManager;
-import org.bukkit.*;
+import org.bukkit.Bukkit;
+import org.bukkit.ChunkSnapshot;
+import org.bukkit.Material;
+import org.bukkit.World;
 
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -27,7 +28,7 @@ public class WorldMapper {
     private static final int workerThreadAmount = Runtime.getRuntime().availableProcessors()-2;
     private static final ExecutorService workerThreads = Executors.newFixedThreadPool(workerThreadAmount);
     //                                   TODO : add this to the config ↴
-    private static final int tileSize = WorldTile.closestTileSize(8);
+    protected static final int tileSize = WorldTile.closestTileSize(8);
     
     private final int chunksPerBatch = 64*64;
     private final World world;
@@ -57,72 +58,96 @@ public class WorldMapper {
     public void mapRadius(int centerX, int centerZ, int radius){
         LinkedList<Runnable> regionTasks = new LinkedList<>();
         
-        WorldRegion[] regions = WorldRegion.split(new Location(world,Math.floorDiv(centerX-radius,16)*16,0,Math.floorDiv(centerZ-radius,16)*16),radius*2,radius*2);
-        for(WorldRegion region : regions){
-            logger.logAdmin("region "+region.chunkX()+", "+region.chunkZ());
-            regionTasks.add(() -> mapRegion(region, chunks -> {
-                
+        //WorldRegion[] regions = WorldRegion.split(new Location(world,Math.floorDiv(centerX-radius,16)*16,0,Math.floorDiv(centerZ-radius,16)*16),radius*2,radius*2);
+        WorldChunk[][] batches = splitRegion(centerX-radius,centerX+radius,centerZ-radius,centerZ+radius);
+        
+        int batchIndex = 0;
+        int batchAmount = batches.length;
+        
+        final long startTime = System.currentTimeMillis();
+        ConcurrentHashMap<Integer,Long> batchTimes = new ConcurrentHashMap<>();
+        
+        for(WorldChunk[] batch : batches){
+            logger.logAdmin("batch "+(batchIndex+1)+"/"+batchAmount);
+            int finalBatchIndex = batchIndex;
+            regionTasks.add(() -> mapRegion(batch, chunks -> {
+                batchTimes.put(finalBatchIndex+1,System.currentTimeMillis()-startTime);
                 // save the region to a file
-                logger.logAdmin("saving data for region "+region.chunkX()+", "+region.chunkZ());
-                WorldMapManager.getInstance(world).saveData(chunks);
+                logger.logAdmin("Mapping of batch "+(finalBatchIndex+1)+" finished", true);
+                logger.logAdmin("saving data for batch "+(finalBatchIndex+1));
+                try{
+                    WorldMapManager.getInstance(world).saveData(chunks);
+                } catch (JsonSyntaxException ignored){}
                 
                 if(!regionTasks.isEmpty()){
                     // run the next region in the queue
+                    logger.logAdmin("starting a new batch");
                     regionTasks.pop().run();
                 } else {
                     // all regions generated !
-                    logger.logAdmin("all regions generated !");
+                    logger.logAdmin("all tiles generated !");
+                    HashMap<Integer,Long> relativeTimes = new HashMap<>();
+                    // converting the batch times into relative times
+                    batchTimes.forEach((i,l) -> relativeTimes.put(i,l-batchTimes.getOrDefault(i-1,0L)));
+                    int averageTime = (int) relativeTimes.values().stream().mapToDouble(a -> (double) a/relativeTimes.size()).sum();
+                    logger.logAdmin("==============[STATS]==============");
+                    logger.logAdmin("-> total time: "+((System.currentTimeMillis()-startTime)/1000.0)+"s");
+                    logger.logAdmin("-> total time for batches: "+(relativeTimes.values().stream().mapToLong(l -> l).sum()/1000.0)+"s");
+                    logger.logAdmin("-> average time: "+averageTime+"ms");
+                    logger.logAdmin("-> chunks per batch: "+chunksPerBatch+"ms");
+                    logger.logAdmin("-> average cps: "+String.format("%.2f",(chunksPerBatch/(averageTime/1000.0)))+" cps");
+                    logger.logAdmin("===================================");
+                    
                 }
             }));
+            batchIndex++;
         }
+        
         if(!regionTasks.isEmpty()){
             regionTasks.pop().run();
         }
     }
     
-    protected void mapRegion(WorldRegion region, Consumer<Set<MappedChunk>> callback) {
-        int regionChunkSize = WorldRegion.regionChunkSize;
-        
-        int chunkStartX = region.chunkX();
-        int chunkStartZ = region.chunkZ();
-        
+    protected void mapRegion(WorldChunk[] region, Consumer<Set<MappedChunk>> callback) {
         // making them final just to assert their thread-safe(ish) nature
-        final int chunkAmount = WorldRegion.regionChunkSize*WorldRegion.regionChunkSize;
+        final int chunkAmount = (int) Arrays.stream(region).filter(Objects::nonNull).count();
         final Set<MappedChunk> mappedChunks = ConcurrentHashMap.newKeySet(chunkAmount);
         
-        for(int x = chunkStartX; x < chunkStartX+regionChunkSize; x++){
-            for(int z = chunkStartZ; z < chunkStartZ+regionChunkSize; z++){
-                
-                final int chunkX = x;
-                final int chunkZ = z;
-                
-                world.getChunkAtAsync(chunkX, chunkZ, false, chunk -> {
-                    // WARNING :
-                    // it is absolutely necessary that includeMaxblocky and includeBiome are set to true
-                    // in chunk.getChunkSnapshot(includeMaxblocky, includeBiome, includeBiomeTempRain) !!!
-                    ChunkSnapshot snapshot = chunk != null ? chunk.getChunkSnapshot(true,true,false) : null;
-                    if(chunk != null && chunk.isEntitiesLoaded()){
-                        world.unloadChunk(chunk);
-                    }
-                    workerThreads.submit(() -> {
-                        int emptyTileArraySize = (16/tileSize)*(16/tileSize);
-                        WorldTile[] tiles = snapshot != null ? mapChunk(snapshot) : new WorldTile[emptyTileArraySize];
-                        
-                        mappedChunks.add(new MappedChunk(world, chunkX, chunkZ, tiles));
-                        // check to see if the mapping is complete :
-                        if(mappedChunks.size() == chunkAmount){
-                            // mapping complete, the set is full !
-                            //
-                            // > REGION MAPPED <
-                            //
-                            logger.logAdmin("Mapping of region "+region.chunkX()+", "+region.chunkZ()+" finished !", true);
-                            callback.accept(mappedChunks);
-                        }
-                    });
+        
+        for(WorldChunk chunkInfo : region){
+            final int chunkX = chunkInfo.getX();
+            final int chunkZ = chunkInfo.getZ();
+            
+            world.getChunkAtAsync(chunkX, chunkZ, false, chunk -> {
+                // WARNING :
+                // it is absolutely necessary that includeMaxblocky and includeBiome are set to true
+                // in chunk.getChunkSnapshot(includeMaxblocky, includeBiome, includeBiomeTempRain) !!!
+                ChunkSnapshot snapshot = chunk != null ? chunk.getChunkSnapshot(true,true,false) : null;
+                if(chunk != null && chunk.isEntitiesLoaded()){
+                    world.unloadChunk(chunk);
+                }
+                workerThreads.submit(() -> {
+                    int emptyTileArraySize = (16/tileSize)*(16/tileSize);
+                    WorldTile[] tiles = snapshot != null ? mapChunk(snapshot) : new WorldTile[emptyTileArraySize];
                     
+                    mappedChunks.add(new MappedChunk(world, chunkX, chunkZ, tiles));
+                    // check to see if the mapping is complete :
+                    if(mappedChunks.size() == chunkAmount){
+                        // mapping complete, the set is full !
+                        //
+                        // > REGION MAPPED <
+                        //
+                        callback.accept(mappedChunks);
+                    }
                 });
-            }
+            });
         }
+        
+        /*for(int x = chunkStartX; x < chunkStartX+regionChunkSize; x++){
+            for(int z = chunkStartZ; z < chunkStartZ+regionChunkSize; z++){
+            
+            }
+        }*/
         
     }
     
