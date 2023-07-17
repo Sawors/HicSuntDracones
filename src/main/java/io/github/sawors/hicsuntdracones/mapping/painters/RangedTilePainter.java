@@ -1,13 +1,13 @@
-package io.github.sawors.hicsuntdracones.mapping.renderers;
+package io.github.sawors.hicsuntdracones.mapping.painters;
 
 import io.github.sawors.hicsuntdracones.mapping.WorldTile;
 import org.bukkit.World;
 
-public abstract class RangedTileRenderer extends TileRenderer{
+public abstract class RangedTilePainter extends TilePainter {
     
     protected WorldTile[] rangeSource;
     
-    public RangedTileRenderer(World world) {
+    public RangedTilePainter(World world) {
         super(world);
     }
     

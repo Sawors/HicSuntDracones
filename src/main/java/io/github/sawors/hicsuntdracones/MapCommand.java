@@ -7,7 +7,7 @@ import io.github.sawors.hicsuntdracones.mapping.WorldMapper;
 import io.github.sawors.hicsuntdracones.mapping.WorldRegion;
 import io.github.sawors.hicsuntdracones.mapping.WorldRenderer;
 import io.github.sawors.hicsuntdracones.mapping.WorldTile;
-import io.github.sawors.hicsuntdracones.mapping.renderers.HeightMapTileRenderer;
+import io.github.sawors.hicsuntdracones.mapping.painters.WaterMapTilePainter;
 import org.bukkit.*;
 import org.bukkit.block.Biome;
 import org.bukkit.block.Block;
@@ -50,7 +50,7 @@ public class MapCommand implements TabExecutor {
                 }
                 case "render" -> {
                     WorldRenderer renderer = new WorldRenderer(world);
-                    renderer.renderMap(new HeightMapTileRenderer(world));
+                    renderer.renderMap(new WaterMapTilePainter(world));
                 }
                 case "chunks" -> {
                     logger.logAdmin("there is "+world.getLoadedChunks().length+" loaded chunks in "+world.getName());
