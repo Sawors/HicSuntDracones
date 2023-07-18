@@ -1,4 +1,4 @@
-package io.github.sawors.hicsuntdracones.mapping.renderers;
+package io.github.sawors.hicsuntdracones.mapping.painters;
 
 import io.github.sawors.hicsuntdracones.mapping.WorldTile;
 import org.bukkit.World;
@@ -6,17 +6,17 @@ import org.jetbrains.annotations.NotNull;
 
 import java.awt.*;
 
-public class LeveledHeightMapTileRenderer extends HeightMapTileRenderer{
+public class LeveledHeightMapTilePainter extends HeightMapTilePainter {
     
     int step;
     int offset = 0;
     
-    public LeveledHeightMapTileRenderer(World world) {
+    public LeveledHeightMapTilePainter(World world) {
         super(world);
         this.step = 4;
     }
     
-    public LeveledHeightMapTileRenderer(World world, int step) {
+    public LeveledHeightMapTilePainter(World world, int step) {
         super(world);
         this.step = step;
     }

@@ -6,8 +6,8 @@ import com.google.gson.JsonObject;
 import io.github.sawors.hicsuntdracones.Main;
 import io.github.sawors.hicsuntdracones.SLogger;
 import io.github.sawors.hicsuntdracones.WorldMapManager;
-import io.github.sawors.hicsuntdracones.mapping.renderers.RangedTileRenderer;
-import io.github.sawors.hicsuntdracones.mapping.renderers.TileRenderer;
+import io.github.sawors.hicsuntdracones.mapping.painters.RangedTilePainter;
+import io.github.sawors.hicsuntdracones.mapping.painters.TilePainter;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.World;
@@ -19,6 +19,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.Reader;
 import java.util.Arrays;
+import java.util.Locale;
 import java.util.Map;
 
 public class WorldRenderer {
@@ -35,7 +36,7 @@ public class WorldRenderer {
         this.logger = Main.logger();
     }
     
-    public void renderMap(TileRenderer renderer) {
+    public void renderMap(TilePainter renderer) {
         long startTime = System.currentTimeMillis();
         // read the save data
         JsonObject saveJson = new JsonObject();
@@ -83,7 +84,9 @@ public class WorldRenderer {
             String type = data.get(WorldTile.FIELD_TYPE).toString().replace("\"","").replace("'","");
             Material material = Material.AIR;
             try{
-                material = Material.valueOf(data.get(WorldTile.FIELD_BLOCK).toString().replace("\"","").replace("'",""));
+                NamespacedKey materialKey = NamespacedKey.fromString(data.get(WorldTile.FIELD_BLOCK).toString().replace("\"","").replace("'",""));
+                if(materialKey == null) materialKey = Material.AIR.getKey();
+                material = Material.valueOf(materialKey.getKey().toUpperCase(Locale.ROOT));
             } catch (IllegalArgumentException | NullPointerException ignored){}
             
             tiles[index] = new WorldTile(x,z,maxY,biomeKey,type,material);
@@ -98,7 +101,7 @@ public class WorldRenderer {
         logger.logAdmin(maxZ);
         logger.logAdmin(minZ);
         
-        if(renderer instanceof RangedTileRenderer ranged){
+        if(renderer instanceof RangedTilePainter ranged){
             ranged.setRangeSource(
                     tiles
 //                    new WorldTile[]{
